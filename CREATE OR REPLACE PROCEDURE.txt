@@ -1,0 +1,200 @@
+CREATE OR REPLACE PROCEDURE areaFind(X IN NUMBER,Y IN NUMBER)
+IS
+PI NUMBER:=3.14;
+I NUMBER:=X;
+J NUMBER:=Y;
+RESULT NUMBER;
+BEGIN
+WHILE I<=J
+LOOP
+	RESULT:=PI*I*I;
+	INSERT INTO AREAS VALUES(I,RESULT);
+	I:=I+1;
+END LOOP;
+END;
+/
+
+
+
+CREATE OR REPLACE TRIGGER update_library
+BEFORE UPDATE OR DELETE ON Library
+FOR EACH ROW
+BEGIN
+	IF UPDATING THEN
+    INSERT INTO Library_Audit
+    VALUES (
+        :OLD.book_id,
+        :OLD.book_name,
+        :OLD.author,
+        :OLD.category,
+        :OLD.date1,
+        'UPDATE'
+    );
+    
+    ELSIF DELETING THEN
+    INSERT INTO Library_Audit
+    VALUES (
+        :OLD.book_id,
+        :OLD.book_name,
+        :OLD.author,
+        :OLD.category,
+        :OLD.date1,
+        'DELETE'
+    );
+END IF;
+END;
+/
+
+CREATE OR REPLACE PROCEDURE proc_Grade IS
+CURSOR C1 IS SELECT ROLL_NO,NAME,TOTAL_MARKS from STUDENT_MARKS;
+class varchar2(50);
+info c1%rowtype;
+BEGIN
+OPEN C1;
+LOOP
+FETCH C1 INTO info;
+EXIT WHEN C1%NOTFOUND;
+
+IF info.TOTAL_MARKS<=1500 AND info.TOTAL_MARKS>=990 then
+	class:='distinction category';
+	
+elsif info.TOTAL_MARKS<=989 AND info.TOTAL_MARKS>=900 then
+	class:='first class';
+	
+elsif info.TOTAL_MARKS<=899 AND info.TOTAL_MARKS>=825 then
+	class:='Higher Second Class';
+	
+END IF;
+INSERT INTO Result values(info.ROLL_NO,info.NAME,class);
+END LOOP;
+CLOSE C1;
+
+
+
+
+END;
+
+-----------------------------------------------
+from pymongo import MongoClient
+
+client = MongoClient()
+db = client["ICEM1"]
+collection = db["Students1"]
+
+while True:
+    print("\n1. Add Student")
+    print("2. Display Students")
+    print("3. Search Student")
+    print("4. Update Student")
+    print("5. Delete Student")
+    print("6. Exit")
+
+    ch = int(input("Enter choice: "))
+
+    if ch == 1:
+        roll = int(input("Enter Roll No: "))
+        name = input("Enter Name: ") 
+        clas = input("Enter Class: ")
+
+        collection.insert_one({
+            "roll_no": roll,
+            "name": name,
+            "class": clas
+        })
+        print("Student Added!")
+
+    elif ch == 2:
+        for s in collection.find():
+            print(s)
+
+    elif ch == 3:
+        roll = int(input("Enter Roll No: "))
+        s = collection.find_one({"roll_no": roll})
+
+        if s:
+            print(s)
+        else:
+            print("Student Not Found!")
+
+    elif ch == 4:
+        roll = int(input("Enter Roll No: "))
+        name = input("Enter New Name: ")
+        class = input("Enter New Class: ")
+
+        result = collection.update_one(
+            {"roll_no": roll},
+            {"$set": {"name": name, "class": clas}}
+        )
+
+        if result.matched_count:
+            print("Student Updated!")
+        else:
+            print("Student Not Found!")
+
+    elif ch == 5:
+        roll = int(input("Enter Roll No: "))
+        result = collection.delete_one({"roll_no": roll})
+
+        if result.deleted_count:
+            print("Student Deleted!")
+        else:
+            print("Student Not Found!")
+
+    elif ch == 6:
+        print("Exiting...")
+        break
+
+    else:
+        print("Invalid Choice!")
+        ------------------------------------------------
+        
+
+import pymysql
+
+mydb=pymysql.connect(
+	host="localhost",
+	user="Deepak",
+	password="root",
+	database="dbconnect"
+)
+mycursor=mydb.cursor();
+
+
+while True:
+	print("What Do you want to do! ")
+	print("1.Insert")
+	print("2.Update")
+	print("3.Delete")
+	choice = input("Enter Choice(1,2,3): ")
+	if choice=="1":
+		id=input("Enter ID: ")
+		name=input("Enter Name: ")
+		marks=input("Enter Marks: ")
+		sql="Insert into student values(%s,%s,%s)"
+		val=(id,name,marks)
+		mycursor.execute(sql,val)
+		mydb.commit()
+		print(mycursor.rowcount,"Record inserted")
+
+	elif choice=="2":
+		name=input("Enter Name to update: ")
+		new_marks=input("Enter Marks updated: ")
+		sql="update student set marks=%s where name=%s"
+		val=(new_marks,name)
+		mycursor.execute(sql,val)
+		mydb.commit()
+		print(mycursor.rowcount,"Record Updated")
+
+	elif choice=="3":
+		name=input("Enter Name to delete: ")
+		sql="delete from student where name=%s"
+		val=(name,)
+		mycursor.execute(sql,val)
+		mydb.commit()
+		print(mycursor.rowcount,"Record Deleted")
+	
+	elif choice=="4":
+		break
+
+mycursor.close()
+mydb.close()

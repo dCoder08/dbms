@@ -1,0 +1,973 @@
+
+DATABASE PRACTICALS – COMPLETE COMMANDS
+=======================================
+
+DIALECT GUIDE
+-------------
+• Problems 1–3: MySQL 8+
+• Problems 4–7: Oracle PL/SQL
+• Problems 8–9: Connectivity program outlines (Python)
+• Problems 10–11 and 14: Oracle SQL (Problem 14 uses INTERSECT and MINUS)
+• Problems 12–13: MongoDB mongosh
+
+Run each problem separately. If a table already exists, drop it first or use
+different table names. SQL*Plus/SQLcl users: use SET SERVEROUTPUT ON for
+DBMS_OUTPUT and put / on a new line after PL/SQL procedures, functions,
+triggers and anonymous blocks.
+
+============================================================
+PROBLEM 1 – CUSTOMER, BRANCH, ACCOUNT, LOAN (MySQL)
+============================================================
+
+CREATE TABLE Customer (
+  cust_id INT PRIMARY KEY,
+  cust_name VARCHAR(40) NOT NULL,
+  city VARCHAR(30),
+  phone VARCHAR(15)
+);
+
+CREATE TABLE Branch (
+  branch_id INT PRIMARY KEY,
+  branch_name VARCHAR(40) NOT NULL,
+  branch_city VARCHAR(30)
+);
+
+CREATE TABLE Account (
+  acc_no INT PRIMARY KEY,
+  cust_id INT,
+  branch_id INT,
+  balance DECIMAL(12,2),
+  FOREIGN KEY (cust_id) REFERENCES Customer(cust_id),
+  FOREIGN KEY (branch_id) REFERENCES Branch(branch_id)
+);
+
+CREATE TABLE Loan (
+  loan_no INT PRIMARY KEY,
+  cust_id INT,
+  branch_id INT,
+  amount DECIMAL(12,2),
+  FOREIGN KEY (cust_id) REFERENCES Customer(cust_id),
+  FOREIGN KEY (branch_id) REFERENCES Branch(branch_id)
+);
+
+INSERT INTO Customer VALUES
+(1,'Amit','Pune','9876500001'),
+(2,'Priya','Pune','9876500002'),
+(3,'Pooja','Mumbai',NULL),
+(4,'Rahul','Mumbai','9876500004'),
+(5,'Sneha','Delhi','9876500005'),
+(6,'Karan','Pune',NULL),
+(7,'Neha','Nashik','9876500007'),
+(8,'Rohan','Mumbai','9876500008'),
+(9,'Payal','Pune','9876500009'),
+(10,'Akash','Delhi',NULL);
+
+INSERT INTO Branch VALUES
+(1,'Akurdi','Pune'),(2,'Chinchwad','Pune'),
+(3,'Baner','Pune'),(4,'Kothrud','Pune'),
+(5,'Andheri','Mumbai'),(6,'Dadar','Mumbai'),
+(7,'Thane','Thane'),(8,'Nashik','Nashik'),
+(9,'Delhi Central','Delhi'),(10,'Vashi','Navi Mumbai');
+
+INSERT INTO Account VALUES
+(2001,1,1,50000),(2002,2,2,65000),(2003,3,3,35000),
+(2004,4,4,80000),(2005,5,5,42000),(2006,6,1,30000),
+(2007,7,2,55000),(2008,8,6,90000),(2009,9,3,45000),
+(2010,10,9,25000);
+
+INSERT INTO Loan VALUES
+(3001,1,1,70000),(3002,2,2,120000),(3003,3,3,50000),
+(3004,4,4,150000),(3005,5,5,90000),(3006,6,1,40000),
+(3007,7,2,80000),(3008,8,6,110000),(3009,9,3,65000),
+(3010,10,9,30000);
+
+-- 1. Customers in alphabetical order
+SELECT * FROM Customer ORDER BY cust_name;
+
+-- 2. Names and cities where name starts with P
+SELECT cust_name, city FROM Customer WHERE cust_name LIKE 'P%';
+
+-- 3. Pune or Mumbai and phone is not NULL
+SELECT * FROM Customer
+WHERE city IN ('Pune','Mumbai') AND phone IS NOT NULL;
+
+-- 4. Phone is NULL
+SELECT * FROM Customer WHERE phone IS NULL;
+
+-- 5. Average balance for each branch
+SELECT b.branch_name, AVG(a.balance) AS average_balance
+FROM Branch b JOIN Account a ON b.branch_id=a.branch_id
+GROUP BY b.branch_id,b.branch_name;
+
+-- 6. Branch average balance > 40000
+SELECT b.branch_name, AVG(a.balance) AS average_balance
+FROM Branch b JOIN Account a ON b.branch_id=a.branch_id
+GROUP BY b.branch_id,b.branch_name
+HAVING AVG(a.balance)>40000;
+
+-- 7. Display balance with 10% interest; does not update stored balance
+SELECT acc_no, balance, balance*1.10 AS balance_with_interest
+FROM Account;
+
+-- 8. Update a customer's phone using their name
+UPDATE Customer SET phone='9999911111' WHERE cust_name='Amit';
+
+-- 9. Delete customers living in Pune.
+-- IMPORTANT: Account and Loan rows reference Customer. Delete child rows first.
+DELETE FROM Account WHERE cust_id IN (SELECT cust_id FROM Customer WHERE city='Pune');
+DELETE FROM Loan WHERE cust_id IN (SELECT cust_id FROM Customer WHERE city='Pune');
+DELETE FROM Customer WHERE city='Pune';
+
+-- 10. Customers who have an account OR a loan
+SELECT c.cust_id,c.cust_name
+FROM Customer c JOIN Account a ON c.cust_id=a.cust_id
+UNION
+SELECT c.cust_id,c.cust_name
+FROM Customer c JOIN Loan l ON c.cust_id=l.cust_id;
+
+
+============================================================
+PROBLEM 2 – STUDENTS AND ENROLMENTS (MySQL)
+============================================================
+
+CREATE TABLE Students (
+  student_id INT PRIMARY KEY,
+  name VARCHAR(40) NOT NULL,
+  city VARCHAR(30)
+);
+
+CREATE TABLE Enrolments (
+  enroll_id INT PRIMARY KEY,
+  student_id INT,
+  course VARCHAR(30),
+  marks INT,
+  FOREIGN KEY (student_id) REFERENCES Students(student_id)
+);
+
+INSERT INTO Students VALUES
+(1,'Amit','Pune'),(2,'Rahul','Mumbai'),(3,'Priya','Pune'),
+(4,'Sneha','Delhi'),(5,'Karan','Nashik'),(6,'Neha','Mumbai'),
+(7,'Rohan','Pune'),(8,'Pooja','Delhi'),(9,'Akash','Nashik'),
+(10,'Payal','Mumbai');
+
+INSERT INTO Enrolments VALUES
+(101,1,'DBMS',85),(102,2,'Python',78),(103,3,'DBMS',92),
+(104,4,'Java',65),(105,5,'Python',88),(106,6,'DBMS',75),
+(107,7,'Python',95),(108,8,'Java',82),(109,9,'DBMS',55),
+(110,1,'Python',90);
+
+-- 1. Student names, course names and marks
+SELECT s.name,e.course,e.marks
+FROM Students s JOIN Enrolments e ON s.student_id=e.student_id;
+
+-- 2. All students, including students with no enrolment
+SELECT s.name,e.course,e.marks
+FROM Students s LEFT JOIN Enrolments e ON s.student_id=e.student_id;
+
+-- 3. All enrolments with corresponding student names
+SELECT e.*,s.name
+FROM Enrolments e LEFT JOIN Students s ON e.student_id=s.student_id;
+
+-- 4. All possible combinations of students and courses (Cartesian product)
+SELECT s.name,e.course FROM Students s CROSS JOIN Enrolments e;
+
+-- 5. Marks greater than average marks
+SELECT s.student_id,s.name,e.marks
+FROM Students s JOIN Enrolments e ON s.student_id=e.student_id
+WHERE e.marks>(SELECT AVG(marks) FROM Enrolments);
+
+-- 6. Students with marks greater than 80
+SELECT DISTINCT s.student_id,s.name,e.marks
+FROM Students s JOIN Enrolments e ON s.student_id=e.student_id
+WHERE e.marks>80;
+
+-- 7. Students enrolled in DBMS
+SELECT s.name,e.marks
+FROM Students s JOIN Enrolments e ON s.student_id=e.student_id
+WHERE e.course='DBMS';
+
+-- 8. Student ID(s) with highest marks
+SELECT student_id FROM Enrolments
+WHERE marks=(SELECT MAX(marks) FROM Enrolments);
+
+-- 9. View, display and update through view
+CREATE VIEW student_course_view AS
+SELECT s.student_id,s.name,e.enroll_id,e.course,e.marks
+FROM Students s JOIN Enrolments e ON s.student_id=e.student_id;
+
+SELECT * FROM student_course_view;
+UPDATE student_course_view SET marks=96 WHERE enroll_id=107;
+
+-- 10. Indexes
+CREATE INDEX idx_students_name ON Students(name);
+CREATE UNIQUE INDEX idx_enrolments_id ON Enrolments(enroll_id);
+
+
+============================================================
+PROBLEM 3 – STUDENTS AND ENROLLMENTS (MySQL)
+============================================================
+
+Use the Students and Enrolments tables created in Problem 2, or create them
+again in a fresh database.
+
+-- 1. Student names and courses
+SELECT s.name,e.course
+FROM Students s JOIN Enrolments e ON s.student_id=e.student_id;
+
+-- 2. All students and course details, including students with no course
+SELECT s.*,e.course,e.marks
+FROM Students s LEFT JOIN Enrolments e ON s.student_id=e.student_id;
+
+-- 3. DBMS students and marks
+SELECT s.name,e.marks
+FROM Students s JOIN Enrolments e ON s.student_id=e.student_id
+WHERE e.course='DBMS';
+
+-- 4. Enrolments without a matching student.
+-- With an enabled foreign key this normally returns no rows.
+SELECT e.*
+FROM Enrolments e LEFT JOIN Students s ON e.student_id=s.student_id
+WHERE s.student_id IS NULL;
+
+-- 5. Marks less than average
+SELECT s.name,e.marks
+FROM Students s JOIN Enrolments e ON s.student_id=e.student_id
+WHERE e.marks<(SELECT AVG(marks) FROM Enrolments);
+
+-- 6. Students whose marks equal highest marks
+SELECT s.name,e.marks
+FROM Students s JOIN Enrolments e ON s.student_id=e.student_id
+WHERE e.marks=(SELECT MAX(marks) FROM Enrolments);
+
+-- 7. Students from Pune
+SELECT * FROM Students WHERE city='Pune';
+
+-- 8. Students enrolled in Python
+SELECT s.name,e.course
+FROM Students s JOIN Enrolments e ON s.student_id=e.student_id
+WHERE e.course='Python';
+
+-- 9. Course average view
+CREATE VIEW course_average_view AS
+SELECT course,AVG(marks) AS average_marks
+FROM Enrolments GROUP BY course;
+SELECT * FROM course_average_view;
+
+-- 10. Indexes
+CREATE INDEX idx_students_city ON Students(city);
+-- student_id is already a PRIMARY KEY and therefore already uniquely indexed.
+-- The following is shown only if the practical specifically requires the command:
+-- CREATE UNIQUE INDEX idx_students_student_id ON Students(student_id);
+
+
+============================================================
+PROBLEM 4 – GRADE PROCEDURE (Oracle PL/SQL)
+============================================================
+
+CREATE TABLE Stud_Marks (
+  rollno NUMBER PRIMARY KEY,
+  name VARCHAR2(40),
+  total_marks NUMBER
+);
+
+CREATE TABLE Result (
+  Roll NUMBER PRIMARY KEY,
+  Name VARCHAR2(40),
+  Class VARCHAR2(30)
+);
+
+INSERT INTO Stud_Marks VALUES (1,'Amit',1200);
+INSERT INTO Stud_Marks VALUES (2,'Rahul',950);
+INSERT INTO Stud_Marks VALUES (3,'Priya',880);
+INSERT INTO Stud_Marks VALUES (4,'Sneha',1000);
+INSERT INTO Stud_Marks VALUES (5,'Karan',820);
+INSERT INTO Stud_Marks VALUES (6,'Neha',1100);
+INSERT INTO Stud_Marks VALUES (7,'Rohan',900);
+INSERT INTO Stud_Marks VALUES (8,'Pooja',989);
+INSERT INTO Stud_Marks VALUES (9,'Akash',700);
+INSERT INTO Stud_Marks VALUES (10,'Payal',1300);
+COMMIT;
+
+CREATE OR REPLACE PROCEDURE proc_Grade
+IS
+BEGIN
+  DELETE FROM Result;
+
+  INSERT INTO Result(Roll,Name,Class)
+  SELECT rollno,name,
+    CASE
+      WHEN total_marks BETWEEN 990 AND 1500 THEN 'Distinction'
+      WHEN total_marks BETWEEN 900 AND 989 THEN 'First Class'
+      WHEN total_marks BETWEEN 825 AND 899 THEN 'Higher Second Class'
+      ELSE 'No Category'
+    END
+  FROM Stud_Marks
+  WHERE total_marks<=1500;
+
+  COMMIT;
+END;
+/
+
+EXEC proc_Grade;
+SELECT * FROM Result;
+
+
+============================================================
+PROBLEM 5 – AREA OF CIRCLE FUNCTION (Oracle PL/SQL)
+============================================================
+
+CREATE TABLE areas (
+  radius NUMBER,
+  area NUMBER
+);
+
+CREATE OR REPLACE FUNCTION circle_area(p_radius NUMBER)
+RETURN NUMBER
+IS
+BEGIN
+  RETURN 3.14159*p_radius*p_radius;
+END;
+/
+
+BEGIN
+  FOR r IN 5..9 LOOP
+    INSERT INTO areas(radius,area)
+    VALUES(r,circle_area(r));
+  END LOOP;
+  COMMIT;
+END;
+/
+
+SELECT * FROM areas ORDER BY radius;
+
+
+============================================================
+PROBLEM 6 – EMPLOYEE CURSOR PROCEDURE (Oracle PL/SQL)
+============================================================
+
+CREATE TABLE Employee (
+  Emp_ID NUMBER PRIMARY KEY,
+  Emp_Name VARCHAR2(40),
+  Department VARCHAR2(30),
+  Salary NUMBER
+);
+
+INSERT INTO Employee VALUES (1,'Amit','IT',45000);
+INSERT INTO Employee VALUES (2,'Rahul','HR',25000);
+INSERT INTO Employee VALUES (3,'Priya','Finance',55000);
+INSERT INTO Employee VALUES (4,'Sneha','IT',30000);
+INSERT INTO Employee VALUES (5,'Karan','HR',40000);
+INSERT INTO Employee VALUES (6,'Neha','Finance',35000);
+INSERT INTO Employee VALUES (7,'Rohan','IT',60000);
+INSERT INTO Employee VALUES (8,'Pooja','HR',28000);
+INSERT INTO Employee VALUES (9,'Akash','IT',50000);
+INSERT INTO Employee VALUES (10,'Payal','Finance',32000);
+COMMIT;
+
+CREATE OR REPLACE PROCEDURE Display_Employees
+IS
+  CURSOR c1 IS
+    SELECT * FROM Employee WHERE Salary>30000;
+
+  info c1%ROWTYPE;
+BEGIN
+  OPEN c1;
+  LOOP
+    FETCH c1 INTO info;
+    EXIT WHEN c1%NOTFOUND;
+
+    DBMS_OUTPUT.PUT_LINE('Employee ID: '||info.Emp_ID);
+    DBMS_OUTPUT.PUT_LINE('Employee Name: '||info.Emp_Name);
+    DBMS_OUTPUT.PUT_LINE('Department: '||info.Department);
+    DBMS_OUTPUT.PUT_LINE('Salary: '||info.Salary);
+    DBMS_OUTPUT.PUT_LINE('---------------------');
+  END LOOP;
+  CLOSE c1;
+END;
+/
+
+SET SERVEROUTPUT ON;
+EXEC Display_Employees;
+
+
+============================================================
+PROBLEM 7 – LIBRARY AUDIT TRIGGER (Oracle PL/SQL)
+============================================================
+
+-- DATE is an Oracle datatype; use a different column name such as book_date.
+CREATE TABLE Library (
+  book_id NUMBER PRIMARY KEY,
+  book_name VARCHAR2(60),
+  author VARCHAR2(50),
+  category VARCHAR2(30),
+  book_date DATE,
+  operation VARCHAR2(20)
+);
+
+CREATE TABLE Library_Audit (
+  book_id NUMBER,
+  book_name VARCHAR2(60),
+  author VARCHAR2(50),
+  category VARCHAR2(30),
+  book_date DATE,
+  operation VARCHAR2(20)
+);
+
+INSERT INTO Library VALUES (1,'DBMS','Navathe','Education',DATE '2024-01-10','INSERT');
+INSERT INTO Library VALUES (2,'C Programming','Dennis Ritchie','Education',DATE '2024-02-11','INSERT');
+INSERT INTO Library VALUES (3,'Java','Herbert Schildt','Programming',DATE '2024-03-12','INSERT');
+INSERT INTO Library VALUES (4,'Python','Guido van Rossum','Programming',DATE '2024-04-13','INSERT');
+INSERT INTO Library VALUES (5,'Networks','Tanenbaum','Education',DATE '2024-05-14','INSERT');
+INSERT INTO Library VALUES (6,'OS','Galvin','Education',DATE '2024-06-15','INSERT');
+INSERT INTO Library VALUES (7,'AI','Russell','Technology',DATE '2024-07-16','INSERT');
+INSERT INTO Library VALUES (8,'ML','Tom Mitchell','Technology',DATE '2024-08-17','INSERT');
+INSERT INTO Library VALUES (9,'C++','Bjarne Stroustrup','Programming',DATE '2024-09-18','INSERT');
+INSERT INTO Library VALUES (10,'SQL','Date','Education',DATE '2024-10-19','INSERT');
+COMMIT;
+
+CREATE OR REPLACE TRIGGER trg_library_update
+BEFORE UPDATE ON Library
+FOR EACH ROW
+BEGIN
+  INSERT INTO Library_Audit
+  VALUES(:OLD.book_id,:OLD.book_name,:OLD.author,:OLD.category,
+         :OLD.book_date,'UPDATE');
+END;
+/
+
+CREATE OR REPLACE TRIGGER trg_library_delete
+BEFORE DELETE ON Library
+FOR EACH ROW
+BEGIN
+  INSERT INTO Library_Audit
+  VALUES(:OLD.book_id,:OLD.book_name,:OLD.author,:OLD.category,
+         :OLD.book_date,'DELETE');
+END;
+/
+
+-- Test the triggers
+UPDATE Library SET book_name='Advanced DBMS' WHERE book_id=1;
+DELETE FROM Library WHERE book_id=2;
+SELECT * FROM Library_Audit;
+COMMIT;
+
+
+============================================================
+PROBLEM 8 – MYSQL DATABASE CONNECTIVITY USING PYTHON
+============================================================
+
+Install the connector (on a computer where installation is permitted):
+python -m pip install mysql-connector-python
+
+Python program (change database, username and password to your own):
+------------------------------------------------------------
+import mysql.connector
+
+con = mysql.connector.connect(
+    host="localhost",
+    user="root",
+    password="your_password",
+    database="college"
+)
+cur = con.cursor()
+
+def add_student():
+    sid = int(input("Student ID: "))
+    name = input("Name: ")
+    city = input("City: ")
+    cur.execute(
+        "INSERT INTO Students(student_id,name,city) VALUES(%s,%s,%s)",
+        (sid,name,city)
+    )
+    con.commit()
+    print("Record added")
+
+def display_students():
+    cur.execute("SELECT * FROM Students")
+    for row in cur.fetchall():
+        print(row)
+
+def update_student():
+    sid = int(input("Student ID to update: "))
+    city = input("New city: ")
+    cur.execute("UPDATE Students SET city=%s WHERE student_id=%s",(city,sid))
+    con.commit()
+    print("Record updated")
+
+def delete_student():
+    sid = int(input("Student ID to delete: "))
+    cur.execute("DELETE FROM Students WHERE student_id=%s",(sid,))
+    con.commit()
+    print("Record deleted")
+
+while True:
+    print("1 Add  2 Display  3 Update  4 Delete  5 Exit")
+    choice = input("Choice: ")
+    if choice == "1":
+        add_student()
+    elif choice == "2":
+        display_students()
+    elif choice == "3":
+        update_student()
+    elif choice == "4":
+        delete_student()
+    elif choice == "5":
+        break
+    else:
+        print("Invalid choice")
+
+cur.close()
+con.close()
+------------------------------------------------------------
+
+============================================================
+PROBLEM 9 – MONGODB CONNECTIVITY USING PYTHON
+============================================================
+
+Install PyMongo (where installation is permitted):
+python -m pip install pymongo
+
+Python program:
+------------------------------------------------------------
+from pymongo import MongoClient
+
+client = MongoClient("mongodb://localhost:27017/")
+db = client["College"]
+students = db["students"]
+
+def add_student():
+    sid = int(input("Student ID: "))
+    name = input("Name: ")
+    city = input("City: ")
+    students.insert_one({"student_id":sid,"name":name,"city":city})
+    print("Record added")
+
+def display_students():
+    for doc in students.find():
+        print(doc)
+
+def update_student():
+    sid = int(input("Student ID to update: "))
+    city = input("New city: ")
+    students.update_one({"student_id":sid},{"$set":{"city":city}})
+    print("Record updated")
+
+def delete_student():
+    sid = int(input("Student ID to delete: "))
+    students.delete_one({"student_id":sid})
+    print("Record deleted")
+
+while True:
+    print("1 Add  2 Display  3 Update  4 Delete  5 Exit")
+    choice = input("Choice: ")
+    if choice == "1":
+        add_student()
+    elif choice == "2":
+        display_students()
+    elif choice == "3":
+        update_student()
+    elif choice == "4":
+        delete_student()
+    elif choice == "5":
+        break
+    else:
+        print("Invalid choice")
+
+client.close()
+------------------------------------------------------------
+
+
+============================================================
+PROBLEM 10 – BANK DATABASE (Oracle SQL)
+============================================================
+
+CREATE TABLE Branch (
+  branch_name VARCHAR2(40) PRIMARY KEY,
+  branch_city VARCHAR2(30) NOT NULL,
+  assets NUMBER(14,2)
+);
+
+CREATE TABLE Customer (
+  cust_name VARCHAR2(40) PRIMARY KEY,
+  cust_street VARCHAR2(60),
+  cust_city VARCHAR2(30)
+);
+
+CREATE TABLE Account (
+  Acc_no NUMBER PRIMARY KEY,
+  branch_name VARCHAR2(40),
+  balance NUMBER(14,2),
+  FOREIGN KEY(branch_name) REFERENCES Branch(branch_name)
+);
+
+CREATE TABLE Depositor (
+  cust_name VARCHAR2(40),
+  acc_no NUMBER,
+  PRIMARY KEY(cust_name,acc_no),
+  FOREIGN KEY(cust_name) REFERENCES Customer(cust_name),
+  FOREIGN KEY(acc_no) REFERENCES Account(Acc_no)
+);
+
+CREATE TABLE Loan (
+  loan_no NUMBER PRIMARY KEY,
+  branch_name VARCHAR2(40),
+  amount NUMBER(14,2),
+  FOREIGN KEY(branch_name) REFERENCES Branch(branch_name)
+);
+
+CREATE TABLE Borrower (
+  cust_name VARCHAR2(40),
+  loan_no NUMBER,
+  PRIMARY KEY(cust_name,loan_no),
+  FOREIGN KEY(cust_name) REFERENCES Customer(cust_name),
+  FOREIGN KEY(loan_no) REFERENCES Loan(loan_no)
+);
+
+INSERT INTO Branch VALUES('Akurdi','Pune',9000000);
+INSERT INTO Branch VALUES('Chinchwad','Pune',8500000);
+INSERT INTO Branch VALUES('Baner','Pune',7000000);
+INSERT INTO Branch VALUES('Kothrud','Pune',6500000);
+INSERT INTO Branch VALUES('Andheri','Mumbai',9500000);
+
+INSERT INTO Customer VALUES('Amit','MG Road','Pune');
+INSERT INTO Customer VALUES('Rahul','FC Road','Pune');
+INSERT INTO Customer VALUES('Priya','Link Road','Mumbai');
+INSERT INTO Customer VALUES('Sneha','Main Road','Delhi');
+INSERT INTO Customer VALUES('Karan','Station Road','Pune');
+INSERT INTO Customer VALUES('Neha','Park Street','Mumbai');
+INSERT INTO Customer VALUES('Rohan','Lake Road','Pune');
+INSERT INTO Customer VALUES('Pooja','Hill Road','Mumbai');
+INSERT INTO Customer VALUES('Akash','Market Road','Nashik');
+INSERT INTO Customer VALUES('Payal','College Road','Pune');
+
+INSERT INTO Account VALUES(2001,'Akurdi',50000);
+INSERT INTO Account VALUES(2002,'Chinchwad',65000);
+INSERT INTO Account VALUES(2003,'Baner',35000);
+INSERT INTO Account VALUES(2004,'Kothrud',80000);
+INSERT INTO Account VALUES(2005,'Akurdi',42000);
+INSERT INTO Account VALUES(2006,'Chinchwad',30000);
+INSERT INTO Account VALUES(2007,'Baner',55000);
+INSERT INTO Account VALUES(2008,'Andheri',90000);
+INSERT INTO Account VALUES(2009,'Akurdi',45000);
+INSERT INTO Account VALUES(2010,'Andheri',25000);
+
+INSERT INTO Depositor VALUES('Amit',2001);
+INSERT INTO Depositor VALUES('Rahul',2002);
+INSERT INTO Depositor VALUES('Priya',2003);
+INSERT INTO Depositor VALUES('Sneha',2004);
+INSERT INTO Depositor VALUES('Karan',2005);
+INSERT INTO Depositor VALUES('Neha',2006);
+INSERT INTO Depositor VALUES('Rohan',2007);
+INSERT INTO Depositor VALUES('Pooja',2008);
+INSERT INTO Depositor VALUES('Akash',2009);
+INSERT INTO Depositor VALUES('Payal',2010);
+
+INSERT INTO Loan VALUES(3001,'Akurdi',70000);
+INSERT INTO Loan VALUES(3002,'Chinchwad',520000);
+INSERT INTO Loan VALUES(3003,'Baner',50000);
+INSERT INTO Loan VALUES(3004,'Kothrud',650000);
+INSERT INTO Loan VALUES(3005,'Andheri',90000);
+INSERT INTO Loan VALUES(3006,'Akurdi',40000);
+INSERT INTO Loan VALUES(3007,'Chinchwad',80000);
+INSERT INTO Loan VALUES(3008,'Baner',110000);
+INSERT INTO Loan VALUES(3009,'Kothrud',550000);
+INSERT INTO Loan VALUES(3010,'Andheri',30000);
+
+INSERT INTO Borrower VALUES('Amit',3001);
+INSERT INTO Borrower VALUES('Rahul',3002);
+INSERT INTO Borrower VALUES('Priya',3003);
+INSERT INTO Borrower VALUES('Sneha',3004);
+INSERT INTO Borrower VALUES('Karan',3005);
+INSERT INTO Borrower VALUES('Neha',3006);
+INSERT INTO Borrower VALUES('Rohan',3007);
+INSERT INTO Borrower VALUES('Pooja',3008);
+INSERT INTO Borrower VALUES('Akash',3009);
+INSERT INTO Borrower VALUES('Payal',3010);
+
+-- 2. Add phone number
+ALTER TABLE Customer ADD phone VARCHAR2(15);
+
+-- 3. Delete phone number attribute
+ALTER TABLE Customer DROP COLUMN phone;
+
+-- 4. Branch names in Loan relation
+SELECT DISTINCT branch_name FROM Loan;
+
+-- 5. Customers with a loan, loan number and amount
+SELECT c.cust_name,l.loan_no,l.amount
+FROM Customer c JOIN Borrower b ON c.cust_name=b.cust_name
+JOIN Loan l ON b.loan_no=l.loan_no;
+
+-- 6. Customers with loans from Akurdi, alphabetical
+SELECT DISTINCT c.cust_name
+FROM Customer c JOIN Borrower b ON c.cust_name=b.cust_name
+JOIN Loan l ON b.loan_no=l.loan_no
+WHERE l.branch_name='Akurdi'
+ORDER BY c.cust_name;
+
+-- 7. Average account balance at Chinchwad
+SELECT AVG(balance) FROM Account WHERE branch_name='Chinchwad';
+
+-- 8. Number of depositors at each branch
+SELECT a.branch_name,COUNT(DISTINCT d.cust_name) AS depositor_count
+FROM Account a JOIN Depositor d ON a.Acc_no=d.acc_no
+GROUP BY a.branch_name;
+
+-- 9. Total loan amount for each branch
+SELECT branch_name,SUM(amount) AS total_loan
+FROM Loan GROUP BY branch_name;
+
+-- 10. Branches with average loan amount > 500000
+SELECT branch_name,AVG(amount) AS average_loan
+FROM Loan GROUP BY branch_name
+HAVING AVG(amount)>500000;
+
+
+============================================================
+PROBLEM 11 – BANK DATABASE ALTER / AGGREGATE QUERIES (Oracle)
+============================================================
+
+Use the tables from Problem 10. Run these commands separately.
+
+-- 1. Rename assets column to Property
+ALTER TABLE Branch RENAME COLUMN assets TO Property;
+
+-- 2. Loan numbers at Akurdi with amount > 12000
+SELECT loan_no FROM Loan
+WHERE branch_name='Akurdi' AND amount>12000;
+
+-- 3. Average account balance at each branch
+SELECT branch_name,AVG(balance) AS average_balance
+FROM Account GROUP BY branch_name;
+
+-- 4. Branches with average balance > 12000
+SELECT branch_name,AVG(balance) AS average_balance
+FROM Account GROUP BY branch_name
+HAVING AVG(balance)>12000;
+
+-- 5. Number of customers (tuples)
+SELECT COUNT(*) AS customer_count FROM Customer;
+
+-- 6. Total loan amount
+SELECT SUM(amount) AS total_loan_amount FROM Loan;
+
+-- 7. Delete loans with amount between 1300 and 1500
+DELETE FROM Loan WHERE amount BETWEEN 1300 AND 1500;
+
+-- 8. Customers whose street is unavailable
+SELECT * FROM Customer WHERE cust_street IS NULL;
+
+-- 9. Branches where branch city is available
+SELECT * FROM Branch WHERE branch_city IS NOT NULL;
+
+-- 10. Customers whose names start with A
+SELECT * FROM Customer WHERE cust_name LIKE 'A%';
+
+
+============================================================
+PROBLEM 12 – MONGODB EMPLOYEE COLLECTION (mongosh)
+============================================================
+
+use ICEM
+
+db.createCollection("employee")
+
+db.employee.insertMany([
+ {empid:1,ename:"Amit",dept:"Computer",salary:45000},
+ {empid:2,ename:"Rahul",dept:"IT",salary:35000},
+ {empid:3,ename:"Priya",dept:"Computer",salary:55000},
+ {empid:4,ename:"Sneha",dept:"HR",salary:25000},
+ {empid:5,ename:"Karan",dept:"IT",salary:40000},
+ {empid:6,ename:"Neha",dept:"Computer",salary:30000},
+ {empid:7,ename:"Rohan",dept:"HR",salary:28000},
+ {empid:8,ename:"Pooja",dept:"IT",salary:48000},
+ {empid:9,ename:"Akash",dept:"Computer",salary:20000},
+ {empid:10,ename:"Payal",dept:"Finance",salary:42000}
+])
+
+-- 1. All employees
+db.employee.find({})
+
+-- 2. Computer department
+db.employee.find({dept:"Computer"})
+
+-- 3. Computer OR IT
+db.employee.find({$or:[{dept:"Computer"},{dept:"IT"}]})
+
+-- 4. Salary > 30000
+db.employee.find({salary:{$gt:30000}})
+
+-- 5. Salary >= 40000 AND Computer department
+db.employee.find({salary:{$gte:40000},dept:"Computer"})
+
+-- 6. Create and drop index
+db.employee.createIndex({ename:1})
+db.employee.getIndexes()
+db.employee.dropIndex({ename:1})
+
+-- 7. Salary between 20000 and 40000 inclusive
+db.employee.find({salary:{$gte:20000,$lte:40000}})
+
+-- 8. Department is not IT
+db.employee.find({dept:{$ne:"IT"}})
+
+-- 9. Total salary per department
+db.employee.aggregate([
+ {$group:{_id:"$dept",total_salary:{$sum:"$salary"}}}
+])
+
+-- 10. Average salary per department
+db.employee.aggregate([
+ {$group:{_id:"$dept",average_salary:{$avg:"$salary"}}}
+])
+
+
+============================================================
+PROBLEM 13 – MONGODB STUDENT COLLECTION (mongosh)
+============================================================
+
+use Student
+
+db.createCollection("student")
+
+db.student.insertMany([
+ {roll_no:1,sname:"Amit",dept:"Computer",marks:85},
+ {roll_no:2,sname:"Rahul",dept:"IT",marks:65},
+ {roll_no:3,sname:"Priya",dept:"Computer",marks:92},
+ {roll_no:4,sname:"Sneha",dept:"HR",marks:35},
+ {roll_no:5,sname:"Karan",dept:"IT",marks:78},
+ {roll_no:6,sname:"Neha",dept:"Computer",marks:55},
+ {roll_no:7,sname:"Rohan",dept:"HR",marks:30},
+ {roll_no:8,sname:"Pooja",dept:"IT",marks:88},
+ {roll_no:9,sname:"Akash",dept:"Computer",marks:25},
+ {roll_no:10,sname:"Payal",dept:"Finance",marks:72}
+])
+
+-- 1. All students
+db.student.find({})
+
+-- 2. Computer department
+db.student.find({dept:"Computer"})
+
+-- 3. Computer OR IT
+db.student.find({$or:[{dept:"Computer"},{dept:"IT"}]})
+
+-- 4. Marks > 70
+db.student.find({marks:{$gt:70}})
+
+-- 5. Marks >= 80 AND Computer department
+db.student.find({marks:{$gte:80},dept:"Computer"})
+
+-- 6. Marks < 40 OR department IT
+db.student.find({$or:[{marks:{$lt:40}},{dept:"IT"}]})
+
+-- 7. Marks between 40 and 80 inclusive
+db.student.find({marks:{$gte:40,$lte:80}})
+
+-- 8. Department is not IT
+db.student.find({dept:{$ne:"IT"}})
+
+-- 9. Total marks per department
+db.student.aggregate([
+ {$group:{_id:"$dept",total_marks:{$sum:"$marks"}}}
+])
+
+-- 10. Create and drop index on sname
+db.student.createIndex({sname:1})
+db.student.getIndexes()
+db.student.dropIndex({sname:1})
+
+
+============================================================
+PROBLEM 14 – CUSTOMER / BRANCH / ACCOUNT / LOAN (Oracle SQL)
+============================================================
+
+Use the tables and sample records from Problem 1, but create them in Oracle
+using NUMBER and VARCHAR2 types if you are running this problem in Oracle.
+The following queries are Oracle SQL.
+
+-- 1. Customers in Pune or Mumbai, alphabetical
+SELECT * FROM Customer
+WHERE city IN ('Pune','Mumbai')
+ORDER BY cust_name;
+
+-- 2. Names containing letter a
+SELECT cust_name FROM Customer WHERE LOWER(cust_name) LIKE '%a%';
+
+-- 3. Phone is NOT NULL
+SELECT * FROM Customer WHERE phone IS NOT NULL;
+
+-- 4. Pune and name starts P, OR Mumbai
+SELECT * FROM Customer
+WHERE (city='Pune' AND cust_name LIKE 'P%') OR city='Mumbai';
+
+-- 5. Maximum and average loan amount per branch
+SELECT b.branch_name,MAX(l.amount) AS maximum_loan,
+       AVG(l.amount) AS average_loan
+FROM Branch b JOIN Loan l ON b.branch_id=l.branch_id
+GROUP BY b.branch_id,b.branch_name;
+
+-- 6. Branches with total loan amount > 100000
+SELECT b.branch_name,SUM(l.amount) AS total_loan
+FROM Branch b JOIN Loan l ON b.branch_id=l.branch_id
+GROUP BY b.branch_id,b.branch_name
+HAVING SUM(l.amount)>100000;
+
+-- 7. Display balance plus 500 without changing stored balance
+SELECT acc_no,balance,balance+500 AS balance_after_500
+FROM Account;
+
+-- 8. Change branch for account 2005 (branch_id 6 must exist)
+UPDATE Account SET branch_id=6 WHERE acc_no=2005;
+
+-- 9. Delete customers whose phone is NULL.
+-- Delete dependent rows first to satisfy foreign keys.
+DELETE FROM Account WHERE cust_id IN
+ (SELECT cust_id FROM Customer WHERE phone IS NULL);
+DELETE FROM Loan WHERE cust_id IN
+ (SELECT cust_id FROM Customer WHERE phone IS NULL);
+DELETE FROM Customer WHERE phone IS NULL;
+
+-- 10(a). Customers with both an account and a loan (INTERSECT)
+SELECT cust_id FROM Account
+INTERSECT
+SELECT cust_id FROM Loan;
+
+-- 10(b). Customers with an account but no loan (MINUS)
+SELECT cust_id FROM Account
+MINUS
+SELECT cust_id FROM Loan;
+
+
+============================================================
+IMPORTANT NOTES / COMMON EXAM POINTS
+============================================================
+
+1. Primary key: uniquely identifies each row; cannot be NULL.
+2. Foreign key: refers to a primary/unique key in another table.
+3. INNER JOIN: only matching rows.
+4. LEFT JOIN: all rows from left table, matching rows from right table if any.
+5. CROSS JOIN: every possible pair of rows.
+6. WHERE filters rows before grouping.
+7. HAVING filters groups after GROUP BY.
+8. COUNT(*) counts rows; AVG() calculates average; SUM() totals values.
+9. IS NULL / IS NOT NULL are used for NULL checks. Do not write = NULL.
+10. LIKE 'P%' means starts with P; LIKE '%a%' means contains a.
+11. UNION combines results and removes duplicates.
+12. INTERSECT returns common rows; MINUS returns rows in first query but not second
+    (Oracle syntax).
+13. A primary key already creates a unique index in MySQL/Oracle; avoid creating
+    a redundant index on the same key.
+14. MongoDB: collection is similar to a table; document is similar to a row;
+    field is similar to a column.
+15. MongoDB operators: $gt, $gte, $lt, $lte, $ne, $or.
+16. MongoDB aggregation: $group groups documents; "$field" refers to a field value.
+17. Oracle PL/SQL cursor flow: OPEN -> FETCH -> EXIT WHEN %NOTFOUND -> process
+    fetched row -> repeat -> CLOSE.
+18. In Oracle row triggers, use :OLD for the previous values and :NEW for new
+    values. In a BEFORE UPDATE/DELETE trigger, :OLD contains the old row.
+19. Oracle procedure declaration uses IS or AS, not DECLARE after IS.
+20. In a cursor declaration, info c1%ROWTYPE; is valid and matches the cursor
+    result columns.
+
+END OF PRACTICAL COMMANDS
